@@ -2,3 +2,4 @@ requests==2.31.0
 matplotlib==3.7.1
 numpy==1.23.5
 pytz
+websocket-client==1.8.0

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
 
-# ===== CONFIGURATION NTFY (depuis les secrets GitHub) =====
+# ===== CONFIGURATION NTFY =====
 NTFY_XAU = os.getenv("NTFY_XAU", "https://ntfy.sh/rick-xau-sr-secret-2026")
 NTFY_EUR = os.getenv("NTFY_EUR", "https://ntfy.sh/rick-eur-sr-secret-2026")
 NTFY_GBP = os.getenv("NTFY_GBP", "https://ntfy.sh/rick-gbp-sr-secret-2026")
@@ -34,24 +34,31 @@ def send(url, title, msg, img=None):
             if r.status_code == 200:
                 log(f"✅ {title}")
                 return True
+            log(f"⚠️ Tentative {i+1}: status {r.status_code}")
             time.sleep(2**i)
         except Exception as e:
-            log(f"❌ Erreur envoi: {e}")
+            log(f"❌ Erreur: {e}")
             time.sleep(2**i)
     return False
 
 def get_candles_deriv(sym):
     try:
         import websocket as ws_client
+        log(f"🔌 Connexion Deriv pour {sym}...")
         ws = ws_client.create_connection('wss://ws.binaryws.com/websockets/v3?app_id=1089', timeout=10)
         ws.send(json.dumps({"ticks_history": sym, "count": 100, "end": "latest", "start": 1, "style": "candles", "granularity": 3600}))
         r = json.loads(ws.recv())
         ws.close()
         if "candles" in r:
-            return [{"t": c["epoch"], "o": float(c["open"]), "h": float(c["high"]), "l": float(c["low"]), "c": float(c["close"])} for c in r["candles"]]
+            candles = [{"t": c["epoch"], "o": float(c["open"]), "h": float(c["high"]), "l": float(c["low"]), "c": float(c["close"])} for c in r["candles"]]
+            log(f"✅ Deriv: {len(candles)} bougies pour {sym}")
+            return candles
+        else:
+            log(f"⚠️ Deriv: pas de bougies pour {sym}")
+            return []
     except Exception as e:
-        log(f"❌ Deriv: {e}")
-    return []
+        log(f"❌ Deriv {sym}: {e}")
+        return []
 
 def get_candles(sym):
     try:
@@ -67,7 +74,9 @@ def get_candles(sym):
         for i in range(len(closes)):
             if closes[i] and opens[i] and highs[i] and lows[i]:
                 candles.append({"t": timestamps[i], "o": opens[i], "h": highs[i], "l": lows[i], "c": closes[i]})
-        return candles[-100:] if len(candles) > 100 else candles
+        candles = candles[-100:] if len(candles) > 100 else candles
+        log(f"✅ Yahoo: {len(candles)} bougies pour {sym}")
+        return candles
     except Exception as e:
         log(f"❌ Yahoo {sym}: {e}")
         return []
@@ -169,12 +178,14 @@ def chart_sr(cd, cp, info):
     return buf.getvalue()
 
 def analyze(key, info):
+    log(f"🔍 Analyse {key}...")
     src = info.get("source", "yahoo")
     if src == "deriv":
         cd = get_candles_deriv(info["symbol"])
     else:
         cd = get_candles(info["symbol"])
     if not cd:
+        log(f"⚠️ Pas de données pour {key}")
         return
     cp = cd[-1]["c"]
     dec = info["dec"]
@@ -198,10 +209,11 @@ def analyze(key, info):
     msg += f"\n📊 10H: H:{max(hi):.{dec}f} | B:{min(lo):.{dec}f} | Var:{var:+.2f}%\n🕒 {h}H Bénin\n🤖 SR Bot"
     img = chart_sr(cd, cp, info)
     
-    # Envoyer le texte
+    log(f"📤 Envoi texte {key}...")
     send(info["ntfy"], f"{key} Rapport {h}H", msg)
     if img:
         time.sleep(1)
+        log(f"📤 Envoi graphique {key}...")
         send(info["ntfy"], f"{key} Graphique {h}H", "SR+Canal", img)
 
 if __name__ == "__main__":
