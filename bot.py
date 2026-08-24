@@ -1,17 +1,21 @@
-import time, requests, io, pytz, json
+import time, requests, io, pytz, json, os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
 
-# ===== CONFIGURATION NTFY =====
-NTFY_TOPIC = "https://ntfy.sh/rick-sr-secret-2024"
+# ===== CONFIGURATION NTFY (depuis les secrets GitHub) =====
+NTFY_XAU = os.getenv("NTFY_XAU", "https://ntfy.sh/rick-xau-sr-secret-2026")
+NTFY_EUR = os.getenv("NTFY_EUR", "https://ntfy.sh/rick-eur-sr-secret-2026")
+NTFY_GBP = os.getenv("NTFY_GBP", "https://ntfy.sh/rick-gbp-sr-secret-2026")
+NTFY_V75 = os.getenv("NTFY_V75", "https://ntfy.sh/rick-v75-sr-secret-2026")
 
 PAIRS = {
-    "XAUUSD": {"symbol": "GC=F", "dec": 2, "name": "XAUUSD (Or)"},
-    "EURUSD": {"symbol": "EURUSD=X", "dec": 5, "name": "EURUSD"},
-    "GBPUSD": {"symbol": "GBPUSD=X", "dec": 5, "name": "GBPUSD"},
+    "XAUUSD": {"symbol": "GC=F", "ntfy": NTFY_XAU, "dec": 2, "name": "XAUUSD (Or)"},
+    "EURUSD": {"symbol": "EURUSD=X", "ntfy": NTFY_EUR, "dec": 5, "name": "EURUSD"},
+    "GBPUSD": {"symbol": "GBPUSD=X", "ntfy": NTFY_GBP, "dec": 5, "name": "GBPUSD"},
+    "V75": {"symbol": "R_75", "ntfy": NTFY_V75, "dec": 2, "name": "Volatility 75", "source": "deriv"},
 }
 
 def log(msg):
@@ -31,9 +35,23 @@ def send(url, title, msg, img=None):
                 log(f"✅ {title}")
                 return True
             time.sleep(2**i)
-        except:
+        except Exception as e:
+            log(f"❌ Erreur envoi: {e}")
             time.sleep(2**i)
     return False
+
+def get_candles_deriv(sym):
+    try:
+        import websocket as ws_client
+        ws = ws_client.create_connection('wss://ws.binaryws.com/websockets/v3?app_id=1089', timeout=10)
+        ws.send(json.dumps({"ticks_history": sym, "count": 100, "end": "latest", "start": 1, "style": "candles", "granularity": 3600}))
+        r = json.loads(ws.recv())
+        ws.close()
+        if "candles" in r:
+            return [{"t": c["epoch"], "o": float(c["open"]), "h": float(c["high"]), "l": float(c["low"]), "c": float(c["close"])} for c in r["candles"]]
+    except Exception as e:
+        log(f"❌ Deriv: {e}")
+    return []
 
 def get_candles(sym):
     try:
@@ -151,7 +169,11 @@ def chart_sr(cd, cp, info):
     return buf.getvalue()
 
 def analyze(key, info):
-    cd = get_candles(info["symbol"])
+    src = info.get("source", "yahoo")
+    if src == "deriv":
+        cd = get_candles_deriv(info["symbol"])
+    else:
+        cd = get_candles(info["symbol"])
     if not cd:
         return
     cp = cd[-1]["c"]
@@ -175,15 +197,20 @@ def analyze(key, info):
         msg += f"🟢 Supports: {', '.join([f'{s:.{dec}f}' for s in sz])}\n"
     msg += f"\n📊 10H: H:{max(hi):.{dec}f} | B:{min(lo):.{dec}f} | Var:{var:+.2f}%\n🕒 {h}H Bénin\n🤖 SR Bot"
     img = chart_sr(cd, cp, info)
-    send(NTFY_TOPIC, f"{key} Rapport {h}H", msg)
+    
+    # Envoyer le texte
+    send(info["ntfy"], f"{key} Rapport {h}H", msg)
     if img:
         time.sleep(1)
-        send(NTFY_TOPIC, f"{key} Graphique {h}H", "SR+Canal", img)
+        send(info["ntfy"], f"{key} Graphique {h}H", "SR+Canal", img)
 
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Résistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h, j = now.hour, now.weekday()
+    
+    log("→ V75 (7j/7)")
+    analyze("V75", PAIRS["V75"])
     
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
