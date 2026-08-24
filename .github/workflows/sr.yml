@@ -1,0 +1,24 @@
+name: SR Bot - Support & Résistance
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Toutes les heures à H+00
+  workflow_dispatch:      # Permet d'exécuter manuellement
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run SR Bot
+        run: python bot.py
