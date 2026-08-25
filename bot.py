@@ -17,7 +17,7 @@ FB_PAGE_ID = os.getenv("FB_PAGE_ID")
 
 # ===== CONFIGURATION STORY =====
 STORY_FILE = "story_count.txt"
-MAX_STORIES_PER_DAY = 10  # ← MODIFIÉ : 10 stories par jour
+MAX_STORIES_PER_DAY = 10
 
 PAIRS = {
     "XAUUSD": {"symbol": "GC=F", "ntfy": NTFY_XAU, "dec": 2, "name": "XAUUSD (Or)"},
@@ -51,7 +51,6 @@ def send(url, title, msg, img=None):
 
 # ===== FONCTIONS STORY =====
 def get_story_count():
-    """Récupère le nombre de stories publiées aujourd'hui"""
     try:
         with open(STORY_FILE, 'r') as f:
             date, count = f.read().strip().split(',')
@@ -62,7 +61,6 @@ def get_story_count():
     return 0
 
 def increment_story_count():
-    """Incrémente le nombre de stories publiées aujourd'hui"""
     date = datetime.now().strftime('%Y-%m-%d')
     count = get_story_count() + 1
     with open(STORY_FILE, 'w') as f:
@@ -70,16 +68,14 @@ def increment_story_count():
     return count
 
 def peut_publier_story():
-    """Vérifie si on peut publier une story aujourd'hui"""
     jour = datetime.now().day
-    if jour % 2 != 0:  # Jours impairs = pas de publication
+    if jour % 2 != 0:
         return False
     if get_story_count() >= MAX_STORIES_PER_DAY:
         return False
     return True
 
 def publier_story(page_id, page_token, message, image):
-    """Publie une story sur Facebook avec image et texte"""
     try:
         if not page_token or not page_id:
             log("⏭️ Pas de token Facebook pour story")
@@ -119,7 +115,6 @@ def publier_story(page_id, page_token, message, image):
         return False
 
 def publier_facebook(page_id, page_token, message, image=None):
-    """Publie un message et une image sur le feed Facebook"""
     try:
         if not page_token or not page_id:
             log("⏭️ Pas de token Facebook configuré")
@@ -372,11 +367,9 @@ def analyze(key, info):
     h = datetime.now(pytz.timezone('Africa/Porto-Novo')).hour
     full_msg += f"\n🕒 {h}H Bénin\n🤖 SR Bot Trading"
     
-    # ===== NTFY =====
     log(f"📤 Envoi notification {key}...")
     send(info["ntfy"], f"{key} - {conseil if condition_remplie else 'Analyse Horaire'}", full_msg)
     
-    # ===== GRAPHIQUE =====
     img = chart_sr(cd, cp, info)
     if img:
         time.sleep(1)
@@ -385,7 +378,6 @@ def analyze(key, info):
     else:
         log(f"⚠️ Pas de graphique généré pour {key}")
     
-    # ===== FACEBOOK FEED =====
     if FB_PAGE_TOKEN and FB_PAGE_ID:
         if img:
             log(f"📤 Publication Facebook {key}...")
@@ -394,7 +386,6 @@ def analyze(key, info):
             log(f"📤 Publication Facebook {key} (sans image)...")
             publier_facebook(FB_PAGE_ID, FB_PAGE_TOKEN, full_msg, None)
     
-    # ===== FACEBOOK STORY =====
     if FB_PAGE_TOKEN and FB_PAGE_ID and condition_remplie and img:
         if peut_publier_story():
             log(f"📤 Publication story {key}...")
