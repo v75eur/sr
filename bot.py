@@ -188,7 +188,6 @@ def analyze(key, info):
         log(f"⚠️ Pas de données pour {key}")
         return
     
-    # ===== NOUVELLE LOGIQUE DE TRADING =====
     cp = cd[-1]["c"]
     dec = info["dec"]
     rz, sz = sr(cd)
@@ -236,14 +235,14 @@ def analyze(key, info):
     log(f"📤 Envoi notification {key}...")
     send(info["ntfy"], f"{key} - {conseil if condition_remplie else 'Analyse Horaire'}", full_msg)
     
-    if condition_remplie:
-        img = chart_sr(cd, cp, info)
-        if img:
-            time.sleep(1)
-            log(f"📤 Envoi graphique {key}...")
-            send(info["ntfy"], f"{key} Graphique - {conseil}", "SR+Canal", img)
+    # ===== ENVOI SYSTÉMATIQUE DU GRAPHIQUE =====
+    img = chart_sr(cd, cp, info)
+    if img:
+        time.sleep(1)
+        log(f"📤 Envoi graphique {key}...")
+        send(info["ntfy"], f"{key} Graphique - {conseil if condition_remplie else 'Analyse'}", "SR+Canal", img)
     else:
-        log(f"⏭️ Pas de graphique car condition non remplie pour {key}")
+        log(f"⚠️ Pas de graphique généré pour {key}")
 
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Résistance")
