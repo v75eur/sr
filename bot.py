@@ -192,39 +192,55 @@ def analyze(key, info):
     dec = info["dec"]
     rz, sz = sr(cd)
     ch = channel(cd)
-    cls = [c["c"] for c in cd[-20:]]
-    s = np.polyfit(np.arange(20), cls, 1)[0]
-    tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
+    
+    # ===== NOUVELLE LOGIQUE : TENDANCE BASÉE SUR LE CANAL =====
+    if ch:
+        if ch["slope"] > 0.0001:
+            tendance = "HAUSSIERE"
+            tendance_icon = "📈"
+        elif ch["slope"] < -0.0001:
+            tendance = "BAISSIERE"
+            tendance_icon = "📉"
+        else:
+            tendance = "LATERALE"
+            tendance_icon = "📊"
+    else:
+        # Fallback : calcul sur 20 bougies si pas de canal
+        cls = [c["c"] for c in cd[-20:]]
+        s = np.polyfit(np.arange(20), cls, 1)[0]
+        tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
+        tendance_icon = "📈" if s>0.0001 else "📉" if s<-0.0001 else "📊"
     
     message = ""
     conseil = ""
     condition_remplie = False
     
-    # Règle 1 : Cassure haussière (clôture > résistance et tendance haussière)
+    # Règle 1 : Cassure haussière (clôture > résistance) ET Canal HAUSSIER
     if rz and cp > rz[0] and tendance == "HAUSSIERE":
         condition_remplie = True
-        conseil = "📈 ACHAT (Cassure Résistance + Tendance Haussière)"
+        conseil = "📈 ACHAT (Cassure Résistance + Canal HAUSSIER)"
         message = f"✅ Cassure de la résistance {rz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
     
-    # Règle 2 : Cassure baissière (clôture < support et tendance baissière)
+    # Règle 2 : Cassure baissière (clôture < support) ET Canal BAISSIER
     elif sz and cp < sz[0] and tendance == "BAISSIERE":
         condition_remplie = True
-        conseil = "📉 VENTE (Cassure Support + Tendance Baissière)"
+        conseil = "📉 VENTE (Cassure Support + Canal BAISSIER)"
         message = f"✅ Cassure du support {sz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
     
     # Si condition non remplie
     if not condition_remplie:
         message = "❌ Condition non remplie pour ce trade"
         if rz and cp > rz[0] and tendance != "HAUSSIERE":
-            message += f"\n⚠️ Cassure résistance {rz[0]:.{dec}f} mais tendance {tendance} (pas alignée)"
+            message += f"\n⚠️ Cassure résistance {rz[0]:.{dec}f} mais canal {tendance} (pas aligné)"
         elif sz and cp < sz[0] and tendance != "BAISSIERE":
-            message += f"\n⚠️ Cassure support {sz[0]:.{dec}f} mais tendance {tendance} (pas alignée)"
+            message += f"\n⚠️ Cassure support {sz[0]:.{dec}f} mais canal {tendance} (pas aligné)"
         else:
             message += f"\n📊 Prix {cp:.{dec}f} dans le range S/R"
     
-    full_msg = f"{message}\n\n📊 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance}"
+    # Message complet
+    full_msg = f"{message}\n\n💰 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance_icon} {tendance}"
     if ch:
-        full_msg += f"\n📏 Canal: {'HAUSSIER ↑' if ch['slope']>0 else 'BAISSIER ↓'}"
+        full_msg += f"\n📏 Canal pente: {ch['slope']:.6f} ({'↑' if ch['slope']>0 else '↓'})"
     if rz:
         full_msg += f"\n🔴 Résistances: {', '.join([f'{r:.{dec}f}' for r in rz])}"
     if sz:
@@ -235,7 +251,7 @@ def analyze(key, info):
     log(f"📤 Envoi notification {key}...")
     send(info["ntfy"], f"{key} - {conseil if condition_remplie else 'Analyse Horaire'}", full_msg)
     
-    # ===== ENVOI SYSTÉMATIQUE DU GRAPHIQUE =====
+    # Envoi du graphique systématiquement
     img = chart_sr(cd, cp, info)
     if img:
         time.sleep(1)
