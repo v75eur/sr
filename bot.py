@@ -187,34 +187,63 @@ def analyze(key, info):
     if not cd:
         log(f"⚠️ Pas de données pour {key}")
         return
+    
+    # ===== NOUVELLE LOGIQUE DE TRADING =====
     cp = cd[-1]["c"]
     dec = info["dec"]
     rz, sz = sr(cd)
     ch = channel(cd)
     cls = [c["c"] for c in cd[-20:]]
     s = np.polyfit(np.arange(20), cls, 1)[0]
-    t = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
-    hi = [c["h"] for c in cd[-10:]]
-    lo = [c["l"] for c in cd[-10:]]
-    cl10 = [c["c"] for c in cd[-10:]]
-    var = ((cl10[-1]-cl10[0])/cl10[0]*100) if cl10 else 0
-    h = datetime.now(pytz.timezone('Africa/Porto-Novo')).hour
-    msg = f"📊 {info['name']} - SR+Canal\n\n💰 Prix: {cp:.{dec}f}\n📈 Tendance: {t}\n"
-    if ch:
-        msg += f"📏 Canal: {'HAUSSIER ↑' if ch['slope']>0 else 'BAISSIER ↓'}\n"
-    if rz:
-        msg += f"🔴 Résistances: {', '.join([f'{r:.{dec}f}' for r in rz])}\n"
-    if sz:
-        msg += f"🟢 Supports: {', '.join([f'{s:.{dec}f}' for s in sz])}\n"
-    msg += f"\n📊 10H: H:{max(hi):.{dec}f} | B:{min(lo):.{dec}f} | Var:{var:+.2f}%\n🕒 {h}H Bénin\n🤖 SR Bot"
-    img = chart_sr(cd, cp, info)
+    tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
     
-    log(f"📤 Envoi texte {key}...")
-    send(info["ntfy"], f"{key} Rapport {h}H", msg)
-    if img:
-        time.sleep(1)
-        log(f"📤 Envoi graphique {key}...")
-        send(info["ntfy"], f"{key} Graphique {h}H", "SR+Canal", img)
+    message = ""
+    conseil = ""
+    condition_remplie = False
+    
+    # Règle 1 : Cassure haussière (clôture > résistance et tendance haussière)
+    if rz and cp > rz[0] and tendance == "HAUSSIERE":
+        condition_remplie = True
+        conseil = "📈 ACHAT (Cassure Résistance + Tendance Haussière)"
+        message = f"✅ Cassure de la résistance {rz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
+    
+    # Règle 2 : Cassure baissière (clôture < support et tendance baissière)
+    elif sz and cp < sz[0] and tendance == "BAISSIERE":
+        condition_remplie = True
+        conseil = "📉 VENTE (Cassure Support + Tendance Baissière)"
+        message = f"✅ Cassure du support {sz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
+    
+    # Si condition non remplie
+    if not condition_remplie:
+        message = "❌ Condition non remplie pour ce trade"
+        if rz and cp > rz[0] and tendance != "HAUSSIERE":
+            message += f"\n⚠️ Cassure résistance {rz[0]:.{dec}f} mais tendance {tendance} (pas alignée)"
+        elif sz and cp < sz[0] and tendance != "BAISSIERE":
+            message += f"\n⚠️ Cassure support {sz[0]:.{dec}f} mais tendance {tendance} (pas alignée)"
+        else:
+            message += f"\n📊 Prix {cp:.{dec}f} dans le range S/R"
+    
+    full_msg = f"{message}\n\n📊 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance}"
+    if ch:
+        full_msg += f"\n📏 Canal: {'HAUSSIER ↑' if ch['slope']>0 else 'BAISSIER ↓'}"
+    if rz:
+        full_msg += f"\n🔴 Résistances: {', '.join([f'{r:.{dec}f}' for r in rz])}"
+    if sz:
+        full_msg += f"\n🟢 Supports: {', '.join([f'{s:.{dec}f}' for s in sz])}"
+    h = datetime.now(pytz.timezone('Africa/Porto-Novo')).hour
+    full_msg += f"\n🕒 {h}H Bénin\n🤖 SR Bot Trading"
+    
+    log(f"📤 Envoi notification {key}...")
+    send(info["ntfy"], f"{key} - {conseil if condition_remplie else 'Analyse Horaire'}", full_msg)
+    
+    if condition_remplie:
+        img = chart_sr(cd, cp, info)
+        if img:
+            time.sleep(1)
+            log(f"📤 Envoi graphique {key}...")
+            send(info["ntfy"], f"{key} Graphique - {conseil}", "SR+Canal", img)
+    else:
+        log(f"⏭️ Pas de graphique car condition non remplie pour {key}")
 
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Résistance")
