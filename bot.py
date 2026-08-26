@@ -386,14 +386,17 @@ def analyze(key, info):
             log(f"📤 Publication Facebook {key} (sans image)...")
             publier_facebook(FB_PAGE_ID, FB_PAGE_TOKEN, full_msg, None)
     
-    if FB_PAGE_TOKEN and FB_PAGE_ID and condition_remplie and img:
+    # ===== STORY : PUBLIER SYSTÉMATIQUEMENT (AVEC OU SANS SIGNAL) =====
+    if FB_PAGE_TOKEN and FB_PAGE_ID and img:
         if peut_publier_story():
+            # Préparer le message de la story
+            story_msg = f"{key}\n{message.split(chr(10))[0]}\n💰 {cp:.{dec}f}\n🤖 SR Bot"
             log(f"📤 Publication story {key}...")
-            publier_story(FB_PAGE_ID, FB_PAGE_TOKEN, full_msg, img)
+            publier_story(FB_PAGE_ID, FB_PAGE_TOKEN, story_msg, img)
         else:
-            log(f"⏭️ Story: conditions non remplies pour {key}")
+            log(f"⏭️ Story: limite atteinte ou jour impair pour {key}")
     else:
-        log(f"⏭️ Pas de signal, pas de story pour {key}")
+        log(f"⏭️ Pas d'image, pas de story pour {key}")
 
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Résistance")
