@@ -11,14 +11,6 @@ NTFY_EUR = os.getenv("NTFY_EUR", "https://ntfy.sh/rick-eur-sr-secret-2026")
 NTFY_GBP = os.getenv("NTFY_GBP", "https://ntfy.sh/rick-gbp-sr-secret-2026")
 NTFY_V75 = os.getenv("NTFY_V75", "https://ntfy.sh/rick-v75-sr-secret-2026")
 
-# ===== CONFIGURATION FACEBOOK =====
-FB_PAGE_TOKEN = os.getenv("FB_PAGE_TOKEN")
-FB_PAGE_ID = os.getenv("FB_PAGE_ID")
-
-# ===== CONFIGURATION STORY =====
-STORY_FILE = "story_count.txt"
-MAX_STORIES_PER_DAY = 10
-
 PAIRS = {
     "XAUUSD": {"symbol": "GC=F", "ntfy": NTFY_XAU, "dec": 2, "name": "XAUUSD (Or)"},
     "EURUSD": {"symbol": "EURUSD=X", "ntfy": NTFY_EUR, "dec": 5, "name": "EURUSD"},
@@ -48,124 +40,6 @@ def send(url, title, msg, img=None):
             log(f"❌ Erreur: {e}")
             time.sleep(2**i)
     return False
-
-# ===== FONCTIONS STORY =====
-def get_story_count():
-    try:
-        with open(STORY_FILE, 'r') as f:
-            date, count = f.read().strip().split(',')
-            if date == datetime.now().strftime('%Y-%m-%d'):
-                return int(count)
-    except:
-        pass
-    return 0
-
-def increment_story_count():
-    date = datetime.now().strftime('%Y-%m-%d')
-    count = get_story_count() + 1
-    with open(STORY_FILE, 'w') as f:
-        f.write(f"{date},{count}")
-    return count
-
-def peut_publier_story():
-    jour = datetime.now().day
-    if jour % 2 != 0:
-        return False
-    if get_story_count() >= MAX_STORIES_PER_DAY:
-        return False
-    return True
-
-def publier_story(page_id, page_token, message, image):
-    try:
-        if not page_token or not page_id:
-            log("⏭️ Pas de token Facebook pour story")
-            return False
-
-        url_img = f"https://graph.facebook.com/v24.0/{page_id}/photos"
-        files = {
-            'source': ('chart.png', image, 'image/png'),
-            'access_token': (None, page_token),
-            'published': (None, 'false')
-        }
-        r_img = requests.post(url_img, files=files, timeout=30)
-        if r_img.status_code != 200:
-            log(f"⚠️ Story: erreur upload image {r_img.status_code}")
-            return False
-
-        img_id = r_img.json().get('id')
-        if not img_id:
-            log("⚠️ Story: pas d'ID d'image")
-            return False
-
-        url_story = f"https://graph.facebook.com/v24.0/{page_id}/stories"
-        data_story = {
-            "media_id": img_id,
-            "access_token": page_token
-        }
-        r_story = requests.post(url_story, data=data_story, timeout=30)
-        if r_story.status_code == 200:
-            log(f"✅ Story publiée")
-            increment_story_count()
-            return True
-        else:
-            log(f"⚠️ Story: erreur {r_story.status_code}")
-            return False
-    except Exception as e:
-        log(f"❌ Story erreur: {e}")
-        return False
-
-def publier_facebook(page_id, page_token, message, image=None):
-    try:
-        if not page_token or not page_id:
-            log("⏭️ Pas de token Facebook configuré")
-            return False
-
-        if image:
-            url_img = f"https://graph.facebook.com/v24.0/{page_id}/photos"
-            files = {
-                'source': ('chart.png', image, 'image/png'),
-                'access_token': (None, page_token),
-                'published': (None, 'false')
-            }
-            r_img = requests.post(url_img, files=files, timeout=30)
-            if r_img.status_code != 200:
-                log(f"⚠️ Facebook erreur upload image: {r_img.status_code}")
-                return False
-
-            img_id = r_img.json().get('id')
-            if not img_id:
-                log("⚠️ Facebook: pas d'ID d'image")
-                return False
-
-            url_post = f"https://graph.facebook.com/v24.0/{page_id}/feed"
-            data_post = {
-                "message": message,
-                "attached_media[0]": f'{{"media_fbid":"{img_id}"}}',
-                "access_token": page_token
-            }
-            r_post = requests.post(url_post, data=data_post, timeout=30)
-            if r_post.status_code == 200:
-                log(f"✅ Facebook feed publié avec image")
-                return True
-            else:
-                log(f"⚠️ Facebook erreur post: {r_post.status_code}")
-                return False
-        else:
-            url = f"https://graph.facebook.com/v24.0/{page_id}/feed"
-            data = {
-                "message": message,
-                "access_token": page_token
-            }
-            r = requests.post(url, data=data, timeout=30)
-            if r.status_code == 200:
-                log(f"✅ Facebook feed publié (texte)")
-                return True
-            else:
-                log(f"⚠️ Facebook erreur feed: {r.status_code}")
-                return False
-    except Exception as e:
-        log(f"❌ Facebook erreur: {e}")
-        return False
 
 def get_candles_deriv(sym):
     try:
@@ -313,12 +187,12 @@ def analyze(key, info):
     if not cd:
         log(f"⚠️ Pas de données pour {key}")
         return
-
+    
     cp = cd[-1]["c"]
     dec = info["dec"]
     rz, sz = sr(cd)
     ch = channel(cd)
-
+    
     if ch:
         if ch["slope"] > 0.0001:
             tendance = "HAUSSIERE"
@@ -334,11 +208,11 @@ def analyze(key, info):
         s = np.polyfit(np.arange(20), cls, 1)[0]
         tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
         tendance_icon = "📈" if s>0.0001 else "📉" if s<-0.0001 else "📊"
-
+    
     message = ""
     conseil = ""
     condition_remplie = False
-
+    
     if rz and cp > rz[0] and tendance == "HAUSSIERE":
         condition_remplie = True
         conseil = "📈 ACHAT (Cassure Résistance + Canal HAUSSIER)"
@@ -347,7 +221,7 @@ def analyze(key, info):
         condition_remplie = True
         conseil = "📉 VENTE (Cassure Support + Canal BAISSIER)"
         message = f"✅ Cassure du support {sz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
-
+    
     if not condition_remplie:
         message = "❌ Condition non remplie pour ce trade"
         if rz and cp > rz[0] and tendance != "HAUSSIERE":
@@ -356,7 +230,7 @@ def analyze(key, info):
             message += f"\n⚠️ Cassure support {sz[0]:.{dec}f} mais canal {tendance} (pas aligné)"
         else:
             message += f"\n📊 Prix {cp:.{dec}f} dans le range S/R"
-
+    
     full_msg = f"{message}\n\n💰 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance_icon} {tendance}"
     if ch:
         full_msg += f"\n📏 Canal pente: {ch['slope']:.6f} ({'↑' if ch['slope']>0 else '↓'})"
@@ -366,10 +240,10 @@ def analyze(key, info):
         full_msg += f"\n🟢 Supports: {', '.join([f'{s:.{dec}f}' for s in sz])}"
     h = datetime.now(pytz.timezone('Africa/Porto-Novo')).hour
     full_msg += f"\n🕒 {h}H Bénin\n🤖 SR Bot Trading"
-
+    
     log(f"📤 Envoi notification {key}...")
     send(info["ntfy"], f"{key} - {conseil if condition_remplie else 'Analyse Horaire'}", full_msg)
-
+    
     img = chart_sr(cd, cp, info)
     if img:
         time.sleep(1)
@@ -378,31 +252,14 @@ def analyze(key, info):
     else:
         log(f"⚠️ Pas de graphique généré pour {key}")
 
-    if FB_PAGE_TOKEN and FB_PAGE_ID:
-        if img:
-            log(f"📤 Publication Facebook {key}...")
-            publier_facebook(FB_PAGE_ID, FB_PAGE_TOKEN, full_msg, img)
-        else:
-            log(f"📤 Publication Facebook {key} (sans image)...")
-            publier_facebook(FB_PAGE_ID, FB_PAGE_TOKEN, full_msg, None)
-
-    if FB_PAGE_TOKEN and FB_PAGE_ID and img:
-        if peut_publier_story():
-            log(f"📤 Publication story {key}...")
-            publier_story(FB_PAGE_ID, FB_PAGE_TOKEN, full_msg, img)
-        else:
-            log(f"⏭️ Story: limite atteinte ou jour impair pour {key}")
-    else:
-        log(f"⏭️ Pas d'image, pas de story pour {key}")
-
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Résistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h, j = now.hour, now.weekday()
-
+    
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
-
+    
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
         for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
@@ -410,5 +267,5 @@ if __name__ == "__main__":
             analyze(key, PAIRS[key])
     else:
         log(f"💤 Forex ferme week-end")
-
+    
     log("✅ Termine")
