@@ -187,32 +187,28 @@ def analyze(key, info):
     if not cd:
         log(f"⚠️ Pas de données pour {key}")
         return
-    
+
     cp = cd[-1]["c"]
     dec = info["dec"]
     rz, sz = sr(cd)
     ch = channel(cd)
-    
+
     if ch:
         if ch["slope"] > 0.0001:
             tendance = "HAUSSIERE"
-            tendance_icon = "📈"
         elif ch["slope"] < -0.0001:
             tendance = "BAISSIERE"
-            tendance_icon = "📉"
         else:
             tendance = "LATERALE"
-            tendance_icon = "📊"
     else:
         cls = [c["c"] for c in cd[-20:]]
         s = np.polyfit(np.arange(20), cls, 1)[0]
         tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
-        tendance_icon = "📈" if s>0.0001 else "📉" if s<-0.0001 else "📊"
-    
-    message = ""
+
     conseil = ""
+    message = ""
     condition_remplie = False
-    
+
     if rz and cp > rz[0] and tendance == "HAUSSIERE":
         condition_remplie = True
         conseil = "📈 ACHAT (Cassure Résistance + Canal HAUSSIER)"
@@ -221,45 +217,26 @@ def analyze(key, info):
         condition_remplie = True
         conseil = "📉 VENTE (Cassure Support + Canal BAISSIER)"
         message = f"✅ Cassure du support {sz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
-    
-    if not condition_remplie:
-        message = "❌ Condition non remplie pour ce trade"
-        if rz and cp > rz[0] and tendance != "HAUSSIERE":
-            message += f"\n⚠️ Cassure résistance {rz[0]:.{dec}f} mais canal {tendance} (pas aligné)"
-        elif sz and cp < sz[0] and tendance != "BAISSIERE":
-            message += f"\n⚠️ Cassure support {sz[0]:.{dec}f} mais canal {tendance} (pas aligné)"
-        else:
-            message += f"\n📊 Prix {cp:.{dec}f} dans le range S/R"
-    
-    full_msg = f"{message}\n\n💰 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance_icon} {tendance}"
-    if ch:
-        full_msg += f"\n📏 Canal pente: {ch['slope']:.6f} ({'↑' if ch['slope']>0 else '↓'})"
-    if rz:
-        full_msg += f"\n🔴 Résistances: {', '.join([f'{r:.{dec}f}' for r in rz])}"
-    if sz:
-        full_msg += f"\n🟢 Supports: {', '.join([f'{s:.{dec}f}' for s in sz])}"
-    h = datetime.now(pytz.timezone('Africa/Porto-Novo')).hour
-    full_msg += f"\n🕒 {h}H Bénin\n🤖 SR Bot Trading"
-    
-    log(f"📤 Envoi notification {key}...")
-    send(info["ntfy"], f"{key} - {conseil if condition_remplie else 'Analyse Horaire'}", full_msg)
-    
-    img = chart_sr(cd, cp, info)
-    if img:
-        time.sleep(1)
-        log(f"📤 Envoi graphique {key}...")
-        send(info["ntfy"], f"{key} Graphique - {conseil if condition_remplie else 'Analyse'}", "SR+Canal", img)
+
+    if condition_remplie:
+        full_msg = f"{message}\n\n💰 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance}\n🕒 {datetime.now(pytz.timezone('Africa/Porto-Novo')).hour}H Bénin\n🤖 SR Bot"
+        log(f"📤 SIGNAL {key} - {conseil}")
+        img = chart_sr(cd, cp, info)
+        send(info["ntfy"], f"🚨 {key} - {conseil}", full_msg)
+        if img:
+            time.sleep(1)
+            send(info["ntfy"], f"{key} Graphique", "SR+Canal", img)
     else:
-        log(f"⚠️ Pas de graphique généré pour {key}")
+        log(f"⏭️ SILENCE {key} - Pas de signal")
 
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Résistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h, j = now.hour, now.weekday()
-    
+
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
-    
+
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
         for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
@@ -267,5 +244,5 @@ if __name__ == "__main__":
             analyze(key, PAIRS[key])
     else:
         log(f"💤 Forex ferme week-end")
-    
+
     log("✅ Termine")
