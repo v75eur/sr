@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
 
-# ===== CONFIGURATION NTFY =====
 NTFY_XAU = os.getenv("NTFY_XAU", "https://ntfy.sh/rick-xau-sr-secret-2026")
 NTFY_EUR = os.getenv("NTFY_EUR", "https://ntfy.sh/rick-eur-sr-secret-2026")
 NTFY_GBP = os.getenv("NTFY_GBP", "https://ntfy.sh/rick-gbp-sr-secret-2026")
@@ -28,9 +27,9 @@ def send(url, title, msg, img=None):
             if img:
                 h["Filename"] = "chart.png"
                 h["X-Message"] = msg
-                r = requests.post(url, data=img, headers={k: v.encode() for k, v in h.items()}, timeout=30)
+                r = requests.post(url, data=img, headers={k: v.encode('utf-8') for k, v in h.items()}, timeout=30)
             else:
-                r = requests.post(url, data=msg.encode(), headers=h, timeout=15)
+                r = requests.post(url, data=msg.encode('utf-8'), headers=h, timeout=15)
             if r.status_code == 200:
                 log(f"✅ {title}")
                 return True
@@ -206,37 +205,36 @@ def analyze(key, info):
         tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
 
     conseil = ""
-    message = ""
+    msg = ""
     condition_remplie = False
 
     if rz and cp > rz[0] and tendance == "HAUSSIERE":
         condition_remplie = True
-        conseil = "📈 ACHAT (Cassure Résistance + Canal HAUSSIER)"
-        message = f"✅ Cassure de la résistance {rz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
+        conseil = "ACHAT (Cassure Resistance + Canal HAUSSIER)"
+        msg = f"SIGNAL ACHAT SR\nCassure de la resistance {rz[0]:.{dec}f} confirmee par la cloture a {cp:.{dec}f}"
     elif sz and cp < sz[0] and tendance == "BAISSIERE":
         condition_remplie = True
-        conseil = "📉 VENTE (Cassure Support + Canal BAISSIER)"
-        message = f"✅ Cassure du support {sz[0]:.{dec}f} confirmée par la clôture à {cp:.{dec}f}"
+        conseil = "VENTE (Cassure Support + Canal BAISSIER)"
+        msg = f"SIGNAL VENTE SR\nCassure du support {sz[0]:.{dec}f} confirmee par la cloture a {cp:.{dec}f}"
 
+    # ===== SILENCE SAUF SIGNAL =====
     if condition_remplie:
-        full_msg = f"{message}\n\n💰 Prix: {cp:.{dec}f}\n📈 Tendance: {tendance}\n🕒 {datetime.now(pytz.timezone('Africa/Porto-Novo')).hour}H Bénin\n🤖 SR Bot"
+        full_msg = f"{msg}\n\nPrix: {cp:.{dec}f}\nTendance: {tendance}\n{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\nSR Bot"
         log(f"📤 SIGNAL {key} - {conseil}")
+        send(info["ntfy"], f"ALERTE {key} - {conseil}", full_msg)
         img = chart_sr(cd, cp, info)
-        send(info["ntfy"], f"🚨 {key} - {conseil}", full_msg)
         if img:
             time.sleep(1)
-            send(info["ntfy"], f"{key} Graphique", "SR+Canal", img)
+            send(info["ntfy"], f"{key} Graphique - {conseil}", "SR+Canal", img)
     else:
-        log(f"⏭️ SILENCE {key} - Pas de signal")
+        log(f"⏭️ SILENCE {key} - Pas de signal SR")
 
 if __name__ == "__main__":
-    log("🚀 SR BOT - Support & Résistance")
+    log("🚀 SR BOT - Support & Resistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h, j = now.hour, now.weekday()
-
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
-
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
         for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
@@ -244,5 +242,4 @@ if __name__ == "__main__":
             analyze(key, PAIRS[key])
     else:
         log(f"💤 Forex ferme week-end")
-
     log("✅ Termine")
