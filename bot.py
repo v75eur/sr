@@ -9,12 +9,14 @@ NTFY_XAU = os.getenv("NTFY_XAU", "https://ntfy.sh/rick-xau-sr-secret-2026")
 NTFY_EUR = os.getenv("NTFY_EUR", "https://ntfy.sh/rick-eur-sr-secret-2026")
 NTFY_GBP = os.getenv("NTFY_GBP", "https://ntfy.sh/rick-gbp-sr-secret-2026")
 NTFY_V75 = os.getenv("NTFY_V75", "https://ntfy.sh/rick-v75-sr-secret-2026")
+NTFY_BT  = os.getenv("NTFY_BT",  "https://ntfy.sh/bot-trade-sr")
 
 PAIRS = {
     "XAUUSD": {"symbol": "GC=F", "ntfy": NTFY_XAU, "dec": 2, "name": "XAUUSD (Or)"},
     "EURUSD": {"symbol": "EURUSD=X", "ntfy": NTFY_EUR, "dec": 5, "name": "EURUSD"},
     "GBPUSD": {"symbol": "GBPUSD=X", "ntfy": NTFY_GBP, "dec": 5, "name": "GBPUSD"},
     "V75": {"symbol": "R_75", "ntfy": NTFY_V75, "dec": 2, "name": "Volatility 75", "source": "deriv"},
+    "BT":  {"symbol": "R_75", "ntfy": NTFY_BT,  "dec": 2, "name": "Bot-Trade V75", "source": "deriv"},
 }
 
 def log(msg):
@@ -217,7 +219,6 @@ def analyze(key, info):
         conseil = "VENTE (Cassure Support + Canal BAISSIER)"
         msg = f"SIGNAL VENTE SR\nCassure du support {sz[0]:.{dec}f} confirmee par la cloture a {cp:.{dec}f}"
 
-    # ===== SILENCE SAUF SIGNAL =====
     if condition_remplie:
         full_msg = f"{msg}\n\nPrix: {cp:.{dec}f}\nTendance: {tendance}\n{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\nSR Bot"
         log(f"📤 SIGNAL {key} - {conseil}")
@@ -235,6 +236,8 @@ if __name__ == "__main__":
     h, j = now.hour, now.weekday()
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
+    log("→ BT (bot-trade-sr)")
+    analyze("BT", PAIRS["BT"])
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
         for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
