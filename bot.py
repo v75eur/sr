@@ -245,4 +245,11 @@ if __name__ == "__main__":
             analyze(key, PAIRS[key])
     else:
         log(f"💤 Forex ferme week-end")
+    # === TEST FORCÉ DE TOUS LES TOPICS ===
+    send(NTFY_XAU, "TEST XAUUSD", "Test forcé XAUUSD depuis GitHub Actions")
+    send(NTFY_EUR, "TEST EURUSD", "Test forcé EURUSD depuis GitHub Actions")
+    send(NTFY_GBP, "TEST GBPUSD", "Test forcé GBPUSD depuis GitHub Actions")
+    send(NTFY_V75, "TEST V75",    "Test forcé V75 depuis GitHub Actions")
+    send(NTFY_BT,  "TEST BT",     "Test forcé BT (bot-trade-sr) depuis GitHub Actions")
+    # === FIN TEST ===
     log("✅ Termine")
