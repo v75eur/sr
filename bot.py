@@ -22,6 +22,27 @@ PAIRS = {
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
+def get_active_users():
+    """Lit users.json et renvoie la liste des topics non expirés."""
+    try:
+        if not os.path.exists("users.json"):
+            return []
+        with open("users.json", "r", encoding="utf-8") as f:
+            users = json.load(f)
+        today = datetime.now().strftime("%Y-%m-%d")
+        actifs = []
+        for pseudo, info in users.items():
+            expire = info.get("expire", "")
+            topic = info.get("topic", "")
+            if not topic or not expire:
+                continue
+            if expire >= today:
+                actifs.append((pseudo, topic))
+        return actifs
+    except Exception as e:
+        log(f"⚠️ Erreur lecture users.json: {e}")
+        return []
+
 def send(url, title, msg, img=None):
     for i in range(5):
         try:
@@ -227,6 +248,14 @@ def analyze(key, info):
         if img:
             time.sleep(1)
             send(info["ntfy"], f"{key} Graphique - {conseil}", "SR+Canal", img)
+        # Envoi supplémentaire aux utilisateurs actifs (users.json)
+        for pseudo, topic in get_active_users():
+            full_url = topic if topic.startswith("http") else f"https://ntfy.sh/{topic}"
+            log(f"📤 Envoi user {pseudo} → {full_url}")
+            send(full_url, f"ALERTE {key} - {conseil}", full_msg)
+            if img:
+                time.sleep(0.5)
+                send(full_url, f"{key} Graphique - {conseil}", "SR+Canal", img)
     else:
         log(f"⏭️ SILENCE {key} - Pas de signal SR")
 
