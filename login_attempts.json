@@ -1,1 +1,5 @@
-{"attempts": 0, "last_attempt": null, "locked_until": null}
+{
+  "attempts": 0,
+  "last_attempt": null,
+  "locked_until": null
+}
