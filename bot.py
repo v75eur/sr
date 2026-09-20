@@ -9,7 +9,7 @@ NTFY_XAU = os.getenv("NTFY_XAU", "https://ntfy.sh/rick-xau-sr-secret-2026")
 NTFY_EUR = os.getenv("NTFY_EUR", "https://ntfy.sh/rick-eur-sr-secret-2026")
 NTFY_GBP = os.getenv("NTFY_GBP", "https://ntfy.sh/rick-gbp-sr-secret-2026")
 NTFY_V75 = os.getenv("NTFY_V75", "https://ntfy.sh/rick-v75-sr-secret-2026")
-NTFY_BT  = os.getenv("NTFY_BT",  "https://ntfy.sh/bot-trade-sr")
+NTFY_BT  = os.getenv("NTFY_BT",  "https://ntfy.sh/admin-sr")
 
 PAIRS = {
     "XAUUSD": {"symbol": "GC=F", "ntfy": NTFY_XAU, "dec": 2, "name": "XAUUSD (Or)"},

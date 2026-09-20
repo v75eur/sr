@@ -1,8 +1,14 @@
 {
-  "Chaabane": {
-    "topic": "Srbot-chaabane",
+  "admin": {
+    "topic": "admin-sr",
+    "expire": "2099-12-31",
+    "whatsapp": "+22960315458",
+    "note": "Admin - permanent"
+  },
+  "chaabane": {
+    "topic": "srbot-chaabane",
     "expire": "2026-10-20",
     "whatsapp": "+22954736808",
-    "note": ""
+    "note": "Ami"
   }
 }
