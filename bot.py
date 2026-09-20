@@ -265,7 +265,7 @@ if __name__ == "__main__":
     h, j = now.hour, now.weekday()
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
-    log("→ BT (bot-trade-sr)")
+    log("→ BT (admin-sr)")
     analyze("BT", PAIRS["BT"])
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
