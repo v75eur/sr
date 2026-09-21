@@ -241,7 +241,16 @@ def analyze(key, info):
         msg = f"SIGNAL VENTE SR\nCassure du support {sz[0]:.{dec}f} confirmee par la cloture a {cp:.{dec}f}"
 
     if condition_remplie:
-        full_msg = f"{msg}\n\nPrix: {cp:.{dec}f}\nTendance: {tendance}\n{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\nSR Bot"
+        full_msg = (
+            f"{msg}\n\n"
+            f"Prix: {cp:.{dec}f}\n"
+            f"Tendance: {tendance}\n"
+            f"{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\n"
+            f"SR Bot\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"📬 Une question ?\n"
+            f"📱 WhatsApp : +229 60 31 54 58"
+        )
         log(f"📤 SIGNAL {key} - {conseil}")
         send(info["ntfy"], f"ALERTE {key} - {conseil}", full_msg)
         img = chart_sr(cd, cp, info)
