@@ -10,5 +10,11 @@
     "expire": "2026-10-20",
     "whatsapp": "+22954736808",
     "note": "Ami"
+  },
+  "public": {
+    "topic": "public",
+    "expire": "2026-10-15",
+    "whatsapp": "+000000000000",
+    "note": ""
   }
 }
