@@ -63,24 +63,33 @@ def send(url, title, msg, img=None):
             time.sleep(2**i)
     return False
 
+# Liste des endpoints Deriv (rotation automatique)
+DERIV_ENDPOINTS = [
+    'wss://api.derivws.com/trading/v1/options/ws/public',
+    'wss://ws.derivws.com/websockets/v3?app_id=1089',
+    'wss://ws.binaryws.com/websockets/v3?app_id=1089',
+]
+
 def get_candles_deriv(sym):
-    try:
-        import websocket as ws_client
-        log(f"🔌 Connexion Deriv pour {sym}...")
-        ws = ws_client.create_connection('wss://ws.binaryws.com/websockets/v3?app_id=1089', timeout=10)
-        ws.send(json.dumps({"ticks_history": sym, "count": 100, "end": "latest", "start": 1, "style": "candles", "granularity": 3600}))
-        r = json.loads(ws.recv())
-        ws.close()
-        if "candles" in r:
-            candles = [{"t": c["epoch"], "o": float(c["open"]), "h": float(c["high"]), "l": float(c["low"]), "c": float(c["close"])} for c in r["candles"]]
-            log(f"✅ Deriv: {len(candles)} bougies pour {sym}")
-            return candles
-        else:
-            log(f"⚠️ Deriv: pas de bougies pour {sym}")
-            return []
-    except Exception as e:
-        log(f"❌ Deriv {sym}: {e}")
-        return []
+    import websocket as ws_client
+    for endpoint in DERIV_ENDPOINTS:
+        try:
+            log(f"🔌 Connexion Deriv ({endpoint.split('/')[2]}) pour {sym}...")
+            ws = ws_client.create_connection(endpoint, timeout=10)
+            ws.send(json.dumps({"ticks_history": sym, "count": 100, "end": "latest", "start": 1, "style": "candles", "granularity": 3600}))
+            r = json.loads(ws.recv())
+            ws.close()
+            if "candles" in r:
+                candles = [{"t": c["epoch"], "o": float(c["open"]), "h": float(c["high"]), "l": float(c["low"]), "c": float(c["close"])} for c in r["candles"]]
+                log(f"✅ Deriv: {len(candles)} bougies pour {sym} ({endpoint.split('/')[2]})")
+                return candles
+            else:
+                log(f"⚠️ Deriv: pas de bougies ({endpoint.split('/')[2]})")
+        except Exception as e:
+            log(f"⚠️ Échec {endpoint.split('/')[2]}: {str(e)[:60]}")
+            continue
+    log(f"❌ Deriv: tous les endpoints ont échoué pour {sym}")
+    return []
 
 def get_candles(sym):
     try:
