@@ -19,11 +19,18 @@ PAIRS = {
     "BT":  {"symbol": "R_75", "ntfy": NTFY_BT,  "dec": 2, "name": "Bot-Trade V75", "source": "deriv"},
 }
 
+# Rotation : le 1er qui marche est utilisé. Si le 1er tombe, le 2eme prend le relais, etc.
+DERIV_ENDPOINTS = [
+    'wss://api.derivws.com/trading/v1/options/ws/public',
+    'wss://ws.derivws.com/websockets/v3?app_id=1089',
+    'wss://ws.binaryws.com/websockets/v3?app_id=1089',
+]
+
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 def get_active_users():
-    """Lit users.json et renvoie la liste des topics non expirés."""
+    """Lit users.json et renvoie les topics non expirés."""
     try:
         if not os.path.exists("users.json"):
             return []
@@ -63,28 +70,23 @@ def send(url, title, msg, img=None):
             time.sleep(2**i)
     return False
 
-# Liste des endpoints Deriv (rotation automatique)
-DERIV_ENDPOINTS = [
-    'wss://api.derivws.com/trading/v1/options/ws/public',
-    'wss://ws.derivws.com/websockets/v3?app_id=1089',
-    'wss://ws.binaryws.com/websockets/v3?app_id=1089',
-]
-
 def get_candles_deriv(sym):
+    """Essaie les endpoints dans l'ordre. Le 1er qui marche est utilisé."""
     import websocket as ws_client
     for endpoint in DERIV_ENDPOINTS:
         try:
-            log(f"🔌 Connexion Deriv ({endpoint.split('/')[2]}) pour {sym}...")
-            ws = ws_client.create_connection(endpoint, timeout=10)
+            host = endpoint.split('/')[2]
+            log(f"🔌 Connexion Deriv ({host}) pour {sym}...")
+            ws = ws_client.create_connection(endpoint, timeout=20)
             ws.send(json.dumps({"ticks_history": sym, "count": 100, "end": "latest", "start": 1, "style": "candles", "granularity": 3600}))
             r = json.loads(ws.recv())
             ws.close()
             if "candles" in r:
                 candles = [{"t": c["epoch"], "o": float(c["open"]), "h": float(c["high"]), "l": float(c["low"]), "c": float(c["close"])} for c in r["candles"]]
-                log(f"✅ Deriv: {len(candles)} bougies pour {sym} ({endpoint.split('/')[2]})")
+                log(f"✅ Deriv: {len(candles)} bougies pour {sym} ({host})")
                 return candles
             else:
-                log(f"⚠️ Deriv: pas de bougies ({endpoint.split('/')[2]})")
+                log(f"⚠️ Deriv: pas de bougies ({host})")
         except Exception as e:
             log(f"⚠️ Échec {endpoint.split('/')[2]}: {str(e)[:60]}")
             continue
@@ -266,7 +268,6 @@ def analyze(key, info):
         if img:
             time.sleep(1)
             send(info["ntfy"], f"{key} Graphique - {conseil}", "SR+Canal", img)
-        # Envoi supplémentaire aux utilisateurs actifs (users.json)
         for pseudo, topic in get_active_users():
             full_url = topic if topic.startswith("http") else f"https://ntfy.sh/{topic}"
             log(f"📤 Envoi user {pseudo} → {full_url}")
@@ -281,7 +282,9 @@ if __name__ == "__main__":
     log("🚀 SR BOT - Support & Resistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h, j = now.hour, now.weekday()
+    log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
+    log("→ BT (admin-sr)")
     analyze("BT", PAIRS["BT"])
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
