@@ -272,10 +272,10 @@ if __name__ == "__main__":
     log("🚀 SR BOT - Support & Resistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h, j = now.hour, now.weekday()
-    log("→ V75 (7j/7)")
-    analyze("V75", PAIRS["V75"])
-    log("→ BT (admin-sr)")
-    analyze("BT", PAIRS["BT"])
+    # V75 desactive temporairement (Cloudflare 520)
+    # analyze("V75", PAIRS["V75"])
+    # BT desactive temporairement
+    # analyze("BT", PAIRS["BT"])
     if j < 5:
         log(f"📊 Analyse Forex {h}H")
         for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
