@@ -25,8 +25,18 @@ DERIV_ENDPOINTS = [
     'wss://ws.binaryws.com/websockets/v3?app_id=1089',
 ]
 
-# Topics qui recoivent les RAPPORTS horaires (pas les topics admin)
-RAPPORT_TOPICS = ["srbot-chaabane", "public"]
+TOPICS_RAPPORT = [
+    "https://ntfy.sh/srbot-chaabane",
+    "https://ntfy.sh/public",
+]
+
+FOOTER = (
+    "━━━━━━━━━━━━━━━━━━━\n"
+    "📬 Une question ?\n"
+    "📱 WhatsApp : +229 60 31 54 58\n"
+    "💬 Groupe WhatsApp :\n"
+    "https://chat.whatsapp.com/EWD8yGDhm0aCr4AUEz4DmU"
+)
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -210,8 +220,15 @@ def chart_sr(cd, cp, info):
     plt.close()
     return buf.getvalue()
 
-def send_rapport(key, info, cp, dec, tendance, rz, sz, ch, img):
-    """Envoie le rapport horaire UNIQUEMENT aux topics de RAPPORT_TOPICS"""
+def build_rapport(key, cp, dec, tendance, rz, sz, ch, marche_ferme=False):
+    if marche_ferme:
+        return (
+            f"📊 RAPPORT HORAIRE - {key}\n\n"
+            f"💤 Marché fermé (week-end)\n\n"
+            f"{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\n"
+            f"SR Bot\n"
+            f"{FOOTER}"
+        )
     res_txt = f"{rz[0]:.{dec}f}" if rz else "—"
     sup_txt = f"{sz[0]:.{dec}f}" if sz else "—"
     if ch and ch["slope"] > 0.0001:
@@ -220,8 +237,7 @@ def send_rapport(key, info, cp, dec, tendance, rz, sz, ch, img):
         canal_txt = "BAISSIER ↓"
     else:
         canal_txt = "LATERAL →"
-
-    rapport_msg = (
+    return (
         f"📊 RAPPORT HORAIRE - {key}\n\n"
         f"Prix: {cp:.{dec}f}\n"
         f"Tendance: {tendance}\n"
@@ -230,22 +246,26 @@ def send_rapport(key, info, cp, dec, tendance, rz, sz, ch, img):
         f"Support: {sup_txt}\n"
         f"{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\n"
         f"SR Bot\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"📬 Une question ?\n"
-        f"📱 WhatsApp : +229 60 31 54 58\n"
-        f"💬 Groupe WhatsApp :\n"
-        f"https://chat.whatsapp.com/EWD8yGDhm0aCr4AUEz4DmU"
+        f"{FOOTER}"
     )
-    for topic in RAPPORT_TOPICS:
-        full_url = f"https://ntfy.sh/{topic}"
-        log(f"📊 RAPPORT {key} → {topic}")
-        send(full_url, f"RAPPORT {key} - {cp:.{dec}f}", rapport_msg)
+
+def envoyer_rapport(key, cp, dec, tendance, rz, sz, ch, img, marche_ferme=False):
+    msg = build_rapport(key, cp, dec, tendance, rz, sz, ch, marche_ferme)
+    for url in TOPICS_RAPPORT:
+        send(url, f"RAPPORT {key}", msg)
         if img:
             time.sleep(0.3)
-            send(full_url, f"RAPPORT {key} - Graphique", "SR+Canal", img)
+            send(url, f"RAPPORT {key} - Graphique", "SR+Canal", img)
 
-def analyze(key, info):
+def analyze(key, info, is_weekend_forex=False):
     log(f"🔍 Analyse {key}...")
+
+    # === CAS SPÉCIAL : Forex fermé le week-end ===
+    if is_weekend_forex:
+        log(f"💤 {key} - marché fermé (week-end)")
+        envoyer_rapport(key, 0, info["dec"], "—", [], [], None, None, marche_ferme=True)
+        return
+
     src = info.get("source", "yahoo")
     if src == "deriv":
         cd = get_candles_deriv(info["symbol"])
@@ -272,11 +292,14 @@ def analyze(key, info):
         s = np.polyfit(np.arange(20), cls, 1)[0]
         tendance = "HAUSSIERE" if s>0.0001 else "BAISSIERE" if s<-0.0001 else "LATERALE"
 
-    # === RAPPORT HORAIRE (uniquement chaabane + public) ===
     img = chart_sr(cd, cp, info)
-    send_rapport(key, info, cp, dec, tendance, rz, sz, ch, img)
 
-    # === SIGNAL (si condition remplie) ===
+    # === RAPPORT : seulement V75 et XAUUSD ===
+    if key in ("V75", "XAUUSD"):
+        log(f"📊 RAPPORT {key} → chaabane + public")
+        envoyer_rapport(key, cp, dec, tendance, rz, sz, ch, img)
+
+    # === SIGNAL ===
     conseil = ""
     msg = ""
     condition_remplie = False
@@ -297,11 +320,7 @@ def analyze(key, info):
             f"Tendance: {tendance}\n"
             f"{datetime.now(pytz.timezone('Africa/Porto-Novo')).strftime('%H:%M')}H Benin\n"
             f"SR Bot\n"
-            f"━━━━━━━━━━━━━━━━━━━\n"
-            f"📬 Une question ?\n"
-            f"📱 WhatsApp : +229 60 31 54 58\n"
-            f"💬 Groupe WhatsApp :\n"
-            f"https://chat.whatsapp.com/EWD8yGDhm0aCr4AUEz4DmU"
+            f"{FOOTER}"
         )
         log(f"📤 SIGNAL {key} - {conseil}")
         send(info["ntfy"], f"ALERTE {key} - {conseil}", full_msg)
@@ -316,25 +335,34 @@ def analyze(key, info):
                 time.sleep(0.3)
                 send(full_url, f"{key} Graphique SIGNAL - {conseil}", "SR+Canal", img)
     else:
-        log(f"⏭️ SILENCE signal {key} (rapport envoyé)")
+        log(f"⏭️ SILENCE signal {key}")
 
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Resistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
     h = now.hour
-    j = now.weekday()
+    j = now.weekday()  # 0=lundi, 5=samedi, 6=dimanche
 
+    # 1. V75 (toujours) : rapport + signal
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
-    log("→ BT (admin-sr)")
+
+    # 2. XAUUSD (rapport + signal) - si week-end : rapport "marche fermé"
+    if j < 5:
+        log(f"→ XAUUSD (Lundi-Vendredi)")
+        analyze("XAUUSD", PAIRS["XAUUSD"])
+    else:
+        log(f"→ XAUUSD (week-end, marche ferme)")
+        analyze("XAUUSD", PAIRS["XAUUSD"], is_weekend_forex=True)
+
+    # 3. BT (signal uniquement, pas de rapport)
+    log("→ BT (admin-sr) - signal uniquement")
     analyze("BT", PAIRS["BT"])
 
+    # 4. Autres Forex (signal uniquement) - si semaine
     if j < 5:
-        log(f"📊 Analyse Forex {h}H (Lundi-Vendredi)")
-        for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
+        for key in ["EURUSD", "GBPUSD"]:
             log(f"→ {key}")
             analyze(key, PAIRS[key])
-    else:
-        log(f"💤 Forex ferme week-end (samedi/dimanche)")
 
     log("✅ Termine")
