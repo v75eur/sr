@@ -19,7 +19,6 @@ PAIRS = {
     "BT":  {"symbol": "R_75", "ntfy": NTFY_BT,  "dec": 2, "name": "Bot-Trade V75", "source": "deriv"},
 }
 
-# Rotation : le 1er qui marche est utilisé. Si le 1er tombe, le 2eme prend le relais, etc.
 DERIV_ENDPOINTS = [
     'wss://api.derivws.com/trading/v1/options/ws/public',
     'wss://ws.derivws.com/websockets/v3?app_id=1089',
@@ -30,7 +29,6 @@ def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 def get_active_users():
-    """Lit users.json et renvoie les topics non expirés."""
     try:
         if not os.path.exists("users.json"):
             return []
@@ -71,7 +69,6 @@ def send(url, title, msg, img=None):
     return False
 
 def get_candles_deriv(sym):
-    """Essaie les endpoints dans l'ordre. Le 1er qui marche est utilisé."""
     import websocket as ws_client
     for endpoint in DERIV_ENDPOINTS:
         try:
@@ -281,16 +278,22 @@ def analyze(key, info):
 if __name__ == "__main__":
     log("🚀 SR BOT - Support & Resistance")
     now = datetime.now(pytz.timezone('Africa/Porto-Novo'))
-    h, j = now.hour, now.weekday()
+    h = now.hour
+    j = now.weekday()  # 0=lundi, 5=samedi, 6=dimanche
+
+    # --- V75/BT : TOUS LES JOURS (lundi à dimanche) ---
     log("→ V75 (7j/7)")
     analyze("V75", PAIRS["V75"])
     log("→ BT (admin-sr)")
     analyze("BT", PAIRS["BT"])
+
+    # --- FOREX : uniquement lundi-vendredi (j < 5) ---
     if j < 5:
-        log(f"📊 Analyse Forex {h}H")
+        log(f"📊 Analyse Forex {h}H (Lundi-Vendredi)")
         for key in ["XAUUSD", "EURUSD", "GBPUSD"]:
             log(f"→ {key}")
             analyze(key, PAIRS[key])
     else:
-        log(f"💤 Forex ferme week-end")
+        log(f"💤 Forex ferme week-end (samedi/dimanche)")
+
     log("✅ Termine")
