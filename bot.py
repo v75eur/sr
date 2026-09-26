@@ -232,7 +232,9 @@ def send_rapport(key, info, cp, dec, tendance, rz, sz, ch, img):
         f"SR Bot\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📬 Une question ?\n"
-        f"📱 WhatsApp : +229 60 31 54 58"
+        f"📱 WhatsApp : +229 60 31 54 58\n"
+        f"💬 Groupe WhatsApp :\n"
+        f"https://chat.whatsapp.com/EWD8yGDhm0aCr4AUEz4DmU"
     )
     for topic in RAPPORT_TOPICS:
         full_url = f"https://ntfy.sh/{topic}"
@@ -297,7 +299,9 @@ def analyze(key, info):
             f"SR Bot\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📬 Une question ?\n"
-            f"📱 WhatsApp : +229 60 31 54 58"
+            f"📱 WhatsApp : +229 60 31 54 58\n"
+            f"💬 Groupe WhatsApp :\n"
+            f"https://chat.whatsapp.com/EWD8yGDhm0aCr4AUEz4DmU"
         )
         log(f"📤 SIGNAL {key} - {conseil}")
         send(info["ntfy"], f"ALERTE {key} - {conseil}", full_msg)
