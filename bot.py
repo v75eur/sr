@@ -254,7 +254,7 @@ def envoyer_rapport(key, cp, dec, tendance, rz, sz, ch, img, marche_ferme=False)
     for url in TOPICS_RAPPORT:
         send(url, f"RAPPORT {key}", msg)
         if img:
-            time.sleep(0.3)
+            time.sleep(2)
             send(url, f"RAPPORT {key} - Graphique", "SR+Canal", img)
 
 def analyze(key, info, is_weekend_forex=False):
@@ -332,7 +332,7 @@ def analyze(key, info, is_weekend_forex=False):
             log(f"📤 SIGNAL user {pseudo} → {full_url}")
             send(full_url, f"ALERTE {key} - {conseil}", full_msg)
             if img:
-                time.sleep(0.3)
+                time.sleep(2)
                 send(full_url, f"{key} Graphique SIGNAL - {conseil}", "SR+Canal", img)
     else:
         log(f"⏭️ SILENCE signal {key}")
